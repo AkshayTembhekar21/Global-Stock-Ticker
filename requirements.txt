@@ -1,0 +1,4 @@
+# Minimal requirements for local development
+# Only needed because boto3 is not installed locally
+boto3==1.34.0
+python-dotenv==1.0.0 
