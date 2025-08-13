@@ -69,4 +69,6 @@ if __name__ == "__main__":
     result = lambda_handler(test_event, None)
     
     print(f"Status Code: {result['statusCode']}")
-    print(f"Response: {result['body']}") 
+    print(f"Response: {result['body']}")
+
+# Updated: New AWS credentials configured for CI/CD deployment 
