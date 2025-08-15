@@ -1,10 +1,21 @@
 import json
-import urllib.request
-import urllib.error
 import boto3
 import os
-import time
-import random
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from pybreaker import CircuitBreaker, CircuitBreakerError
+import requests
+from requests.exceptions import RequestException, Timeout
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Circuit breaker for Finnhub API calls
+finnhub_breaker = CircuitBreaker(
+    fail_max=5,           # Open circuit after 5 failures
+    reset_timeout=60,      # Wait 60 seconds before trying again
+    exclude=[RequestException]  # Exclude these exceptions from counting as failures
+)
 
 cached_api_key = None
 
@@ -39,19 +50,21 @@ def _extract_symbol(event):
         return q["symbol"]
     return "AAPL"
 
-def _call_finnhub(url, attempts=3, timeout=3):
-    # simple retry with jitter for transient errors
-    for i in range(attempts):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "quote-svc/1.0"})
-            with urllib.request.urlopen(req, timeout=timeout) as response:
-                if response.status >= 400:
-                    raise urllib.error.HTTPError(url, response.status, "bad status", response.headers, None)
-                return json.loads(response.read().decode())
-        except (urllib.error.URLError, urllib.error.HTTPError) as e:
-            if i == attempts - 1:
-                raise
-            time.sleep((2 ** i) * 0.2 + random.random() * 0.2)
+@finnhub_breaker
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type((RequestException, Timeout))
+)
+def _call_finnhub(url, timeout=5):
+    """Call Finnhub API with automatic retries and circuit breaker protection."""
+    response = requests.get(
+        url, 
+        timeout=timeout,
+        headers={"User-Agent": "quote-svc/1.0"}
+    )
+    response.raise_for_status()  # Raises HTTPError for bad status codes
+    return response.json()
 
 def get_cors_headers(origin):
     # OPEN CORS - Allow all origins for now (development/testing)
@@ -78,7 +91,19 @@ def lambda_handler(event, context):
         api_key = get_api_key()
         symbol = _extract_symbol(event)
         url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
-        data = _call_finnhub(url)
+        
+        try:
+            data = _call_finnhub(url)
+        except CircuitBreakerError:
+            # Circuit is open - return cached data or error
+            return {
+                "statusCode": 503,
+                "headers": get_cors_headers(event.get("headers", {}).get("origin", "")),
+                "body": json.dumps({
+                    "error": "Service temporarily unavailable - circuit breaker open",
+                    "symbol": symbol
+                })
+            }
 
         body = {
             "symbol": symbol,
