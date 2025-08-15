@@ -54,27 +54,15 @@ def _call_finnhub(url, attempts=3, timeout=3):
             time.sleep((2 ** i) * 0.2 + random.random() * 0.2)
 
 def get_cors_headers(origin):
-    # SECURE CORS - Only allow specific domains
-    allowed_origins = [
-        "https://yourdomain.com",  # Replace with your actual domain
-        "https://app.yourdomain.com",  # Replace with your actual domain
-        "http://localhost:3000",  # For local development
-        "http://localhost:8080"   # For local development
-    ]
-    
-    if origin in allowed_origins:
-        return {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600"
-        }
-    else:
-        return {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "null"  # Block unauthorized origins
-        }
+    # OPEN CORS - Allow all origins for now (development/testing)
+    # TODO: Restrict to specific domains in production
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": origin if origin else "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Max-Age": "3600"
+    }
 
 def lambda_handler(event, context):
     # Handle preflight OPTIONS request

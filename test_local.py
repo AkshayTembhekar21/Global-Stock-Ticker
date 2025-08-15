@@ -114,8 +114,8 @@ def test_cors_handling():
     except Exception as e:
         print(f"❌ Exception: {str(e)}")
     
-    # Test 2: Disallowed origin
-    print("\n📋 Test 2: Disallowed origin (malicious-site.com)")
+    # Test 2: Any origin (should be allowed now)
+    print("\n📋 Test 2: Any origin (should be allowed)")
     test_event = {
         "httpMethod": "GET",
         "queryStringParameters": {"symbol": "AAPL"},
@@ -125,10 +125,10 @@ def test_cors_handling():
         result = lambda_handler(test_event, None)
         print(f"✅ Status Code: {result['statusCode']}")
         print(f"   CORS Origin: {result.get('headers', {}).get('Access-Control-Allow-Origin', 'Not set')}")
-        if result.get('headers', {}).get('Access-Control-Allow-Origin') == 'null':
-            print("   ✅ Security: Unauthorized origin blocked")
+        if result.get('headers', {}).get('Access-Control-Allow-Origin') == 'https://malicious-site.com':
+            print("   ✅ CORS: Origin allowed (open for development)")
         else:
-            print("   ❌ Security: Unauthorized origin allowed")
+            print("   ❌ CORS: Origin not properly set")
     except Exception as e:
         print(f"❌ Exception: {str(e)}")
 
@@ -194,7 +194,7 @@ def main():
     print("\nWhat we tested:")
     print("✅ Direct invocation (local testing)")
     print("✅ API Gateway format (web requests)")
-    print("✅ CORS handling (security)")
+    print("✅ CORS handling (open for development)")
     print("✅ OPTIONS requests (CORS preflight)")
     print("✅ Error handling (robustness)")
 
