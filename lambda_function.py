@@ -41,13 +41,22 @@ def get_api_key():
 def _extract_symbol(event):
     if not isinstance(event, dict):
         return "AAPL"
+    
     # direct invoke: {"symbol":"AAPL"}
     if "symbol" in event and isinstance(event["symbol"], str) and event["symbol"]:
         return event["symbol"]
-    # API Gateway (HTTP API) proxy event
+    
+    # API Gateway REST API with path parameters: /quote/{symbol}
+    if "pathParameters" in event and event["pathParameters"]:
+        symbol = event["pathParameters"].get("symbol")
+        if symbol:
+            return symbol
+    
+    # API Gateway with query parameters: /quote?symbol=TSLA
     q = event.get("queryStringParameters") or {}
     if isinstance(q, dict) and q.get("symbol"):
         return q["symbol"]
+    
     return "AAPL"
 
 @finnhub_breaker
