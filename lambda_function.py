@@ -57,6 +57,32 @@ def _extract_symbol(event):
     if isinstance(q, dict) and q.get("symbol"):
         return q["symbol"]
     
+    # WORKAROUND: If API Gateway is not configured for path parameters,
+    # we need to extract the symbol from the actual URL or event structure
+    # This is a fallback for when API Gateway doesn't pass path parameters correctly
+    
+    # Check if there's a rawPath in the event (API Gateway v2)
+    if "rawPath" in event:
+        path = event["rawPath"]
+        if "/quote/" in path:
+            symbol = path.split("/quote/")[-1]
+            if symbol and symbol != "":
+                return symbol
+    
+    # Check if there's a path in the event (API Gateway v1)
+    if "path" in event:
+        path = event["path"]
+        if "/quote/" in path:
+            symbol = path.split("/quote/")[-1]
+            if symbol and symbol != "":
+                return symbol
+    
+    # Check if there's a resource in the event
+    if "resource" in event and "/quote/{symbol}" in event["resource"]:
+        # This means the API Gateway is configured but not passing pathParameters
+        # We'll need to extract from the actual request path
+        pass
+    
     return "AAPL"
 
 @finnhub_breaker
@@ -87,6 +113,9 @@ def get_cors_headers(origin):
     }
 
 def lambda_handler(event, context):
+    # DEBUG: Log the event structure to understand what API Gateway is sending
+    print(f"DEBUG: Event received: {json.dumps(event, indent=2)}")
+    
     # Handle preflight OPTIONS request
     if event.get("httpMethod") == "OPTIONS":
         origin = event.get("headers", {}).get("origin", "")
@@ -99,6 +128,7 @@ def lambda_handler(event, context):
     try:
         api_key = get_api_key()
         symbol = _extract_symbol(event)
+        print(f"DEBUG: Extracted symbol: {symbol}")
         url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
         
         try:
