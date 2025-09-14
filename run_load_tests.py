@@ -37,7 +37,7 @@ def main():
     
     print("🌍 Stock Ticker API - Load Test Runner")
     print("=" * 50)
-    print(f"API: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/DEV/quote/LLY")
+    print(f"API: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/PROD/quote/LLY")
     
     if args.test == "burst":
         # Burst test: 2000 concurrent requests

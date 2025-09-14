@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Specific Load Test for Stock Ticker API
-API URL: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/DEV/quote/LLY
+API URL: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/PROD/quote/LLY
 
 Test Requirements:
 1. 2000 concurrent requests in a second
@@ -29,7 +29,7 @@ class StockAPILoadTest(HttpUser):
     @task
     def test_llm_stock_quote(self):
         """Test the specific LLY endpoint"""
-        endpoint = "/DEV/quote/LLY"
+        endpoint = "/PROD/quote/LLY"
         
         with self.client.get(endpoint, catch_response=True) as response:
             if response.status_code == 200:
@@ -51,7 +51,7 @@ class StockAPILoadTest(HttpUser):
         """Test other stock symbols occasionally"""
         symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
         symbol = random.choice(symbols)
-        endpoint = f"/DEV/quote/{symbol}"
+        endpoint = f"/PROD/quote/{symbol}"
         
         with self.client.get(endpoint, catch_response=True) as response:
             if response.status_code == 200:
@@ -78,7 +78,7 @@ class SustainedLoadUser(StockAPILoadTest):
 if __name__ == "__main__":
     print("🌍 Stock Ticker API - Specific Load Test")
     print("=" * 50)
-    print("API Endpoint: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/DEV/quote/LLY")
+    print("API Endpoint: https://q12h96ifp0.execute-api.us-east-1.amazonaws.com/PROD/quote/LLY")
     print("\nTest Scenarios:")
     print("1. Burst Test: 2000 concurrent requests")
     print("2. Sustained Test: 200 users with 200ms delay")
