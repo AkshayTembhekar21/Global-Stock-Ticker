@@ -26,33 +26,27 @@ cached_api_key = None
 
 def get_api_key():
     global cached_api_key
-    logger.info(" Starting API key retrieval process")
     
     if cached_api_key:
         logger.info(" Using cached API key (first 8 chars): %s", cached_api_key[:8] + "..." if cached_api_key else "None")
         return cached_api_key
 
-    logger.info(" Checking environment variable FINNHUB_API_KEY")
     env_key = os.environ.get("FINNHUB_API_KEY")
     if env_key:
         logger.info(" Found API key in environment variable (first 8 chars): %s", env_key[:8] + "...")
         cached_api_key = env_key
         return cached_api_key
 
-    logger.info(" Environment variable not found, checking AWS Secrets Manager")
     secret_name = os.environ.get("SECRET_NAME", "prod/finnhub/api_key")
     region_name = os.environ.get("AWS_REGION", "us-east-1")
     
     logger.info(" Secrets Manager config - Secret: %s, Region: %s", secret_name, region_name)
 
     try:
-        logger.info(" Creating boto3 Secrets Manager client")
         client = boto3.client("secretsmanager", region_name=region_name)
         
-        logger.info(" Retrieving secret from AWS Secrets Manager")
         resp = client.get_secret_value(SecretId=secret_name)
         
-        logger.info(" Parsing secret JSON response")
         secret_dict = json.loads(resp["SecretString"])
         cached_api_key = secret_dict["FINNHUB_API_KEY"]
         
@@ -64,10 +58,7 @@ def get_api_key():
         raise
 
 def _extract_symbol(event):
-    logger.info(" Starting symbol extraction from event")
     logger.info("Incoming Event : %s", event)
-    logger.info(" Event type: %s", type(event).__name__)
-    logger.info(" Event content: %s", json.dumps(event, default=str)[:200] + "..." if len(str(event)) > 200 else json.dumps(event, default=str))
     
     if not isinstance(event, dict):
         logger.warning(" Event is not a dictionary, using default symbol AAPL")
@@ -172,10 +163,8 @@ def lambda_handler(event, context):
         return response
     
     try:
-        logger.info(" Getting API key")
         api_key = get_api_key()
         
-        logger.info(" Extracting symbol from event")
         symbol = _extract_symbol(event)
         logger.info(" Using symbol: %s", symbol)
         
@@ -183,7 +172,6 @@ def lambda_handler(event, context):
         logger.info(" Constructed Finnhub URL (masked): %s", url.replace(api_key, "***MASKED***"))
         
         try:
-            logger.info(" Calling Finnhub API")
             data = _call_finnhub(url)
             logger.info(" Successfully received data from Finnhub")
             
@@ -203,7 +191,6 @@ def lambda_handler(event, context):
             logger.info(" Returning 503 response: %s", response)
             return response
 
-        logger.info(" Processing response data")
         body = {
             "symbol": symbol,
             "current_price": data.get("c"),
@@ -222,7 +209,6 @@ def lambda_handler(event, context):
         }
         
         logger.info(" Successfully processed request")
-        logger.info(" Returning 200 response")
         return response
         
     except Exception as e:
