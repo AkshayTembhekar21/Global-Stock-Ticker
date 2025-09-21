@@ -43,7 +43,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: us-west-1
     
     - name: Update Lambda function
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -51,4 +51,4 @@ jobs:
         aws lambda update-function-code \
           --function-name GetStockPrice \
           --zip-file fileb://lambda_deployment.zip \
-          --region us-east-1 
+          --region us-west-1 
