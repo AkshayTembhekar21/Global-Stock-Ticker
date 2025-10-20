@@ -57,12 +57,85 @@ def get_api_key():
         logger.error(" Failed to retrieve API key from Secrets Manager: %s", str(e))
         raise
 
+def _extract_symbol_from_sqs_message(message_body):
+    """Extract symbol from SQS message body.
+
+    Accepts bodies that are:
+    - JSON like {"symbol": "TSLA"}
+    - API Gateway proxy event bodies (with queryStringParameters/pathParameters)
+    - Plain text symbols like "TSLA"
+    """
+    logger.info("Extracting symbol from SQS message body: %s", message_body)
+
+    # If body is a plain string that looks like a symbol, use it directly
+    if isinstance(message_body, str):
+        stripped = message_body.strip().strip('"')
+        if stripped.isalpha() and 1 <= len(stripped) <= 8:
+            logger.info("Interpreting plain-text SQS body as symbol: %s", stripped)
+            return stripped.upper()
+
+    try:
+        # Parse the message body as JSON if it's a string
+        if isinstance(message_body, str):
+            message_data = json.loads(message_body)
+        else:
+            message_data = message_body
+
+        # Check for symbol in the message
+        if isinstance(message_data, dict) and "symbol" in message_data:
+            symbol = str(message_data["symbol"]).strip()
+            if symbol:
+                logger.info("Found symbol in SQS message: %s", symbol)
+                return symbol
+
+        # Check for queryStringParameters (from API Gateway)
+        if isinstance(message_data, dict) and "queryStringParameters" in message_data:
+            q = message_data["queryStringParameters"] or {}
+            if isinstance(q, dict) and q.get("symbol"):
+                symbol = str(q["symbol"]).strip()
+                if symbol:
+                    logger.info("Found symbol in queryStringParameters: %s", symbol)
+                    return symbol
+
+        # Check for pathParameters (from API Gateway route like /quote/{symbol})
+        if isinstance(message_data, dict) and message_data.get("pathParameters"):
+            p = message_data["pathParameters"] or {}
+            symbol = str(p.get("symbol", "")).strip()
+            if symbol:
+                logger.info("Found symbol in pathParameters: %s", symbol)
+                return symbol
+
+        logger.warning("No symbol found in SQS message, using default: AAPL")
+        return "AAPL"
+
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse SQS message body as JSON: %s", str(e))
+        return "AAPL"
+    except Exception as e:
+        logger.error("Unexpected error extracting symbol from SQS message: %s", str(e))
+        return "AAPL"
+
 def _extract_symbol(event):
     logger.info("Incoming Event : %s", event)
     
     if not isinstance(event, dict):
         logger.warning(" Event is not a dictionary, using default symbol AAPL")
         return "AAPL"
+    
+    # Handle SQS batch events
+    if "Records" in event:
+        logger.info("Detected SQS event. Processing SQS batch event with %d records", len(event["Records"]))
+        if event["Records"]:
+            # Process the first record (we'll handle batch processing later)
+            first_record = event["Records"][0]
+            message_body = first_record.get("body", "")
+            logger.info("Processing first SQS record: %s", first_record.get("messageId", "unknown"))
+            symbol = _extract_symbol_from_sqs_message(message_body)
+            logger.info("Symbol extracted from SQS: %s", symbol)
+            return symbol
+        else:
+            logger.warning("SQS event has no records, using default symbol AAPL")
+            return "AAPL"
     
     # direct invoke: {"symbol":"AAPL"}
     if "symbol" in event and isinstance(event["symbol"], str) and event["symbol"]:
